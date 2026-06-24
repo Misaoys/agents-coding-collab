@@ -39,6 +39,13 @@ skills/
   agents-coding-final-review/
 ```
 
+## Install From Source
+
+Clone this repository, then add it to a local Codex marketplace or copy the plugin folder into a
+marketplace-managed plugin directory. The plugin manifest lives at `.codex-plugin/plugin.json`.
+
+For local development, the expected plugin root is the repository root.
+
 ## Basic Script Usage
 
 From `skills/agents-coding-collab`:

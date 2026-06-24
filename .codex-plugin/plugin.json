@@ -3,8 +3,11 @@
   "version": "0.1.0+codex.20260624183552",
   "description": "Tool-aware multi-skill coding collaboration plugin with multi-model routing, quick/long-edit mode selection, freshness checks, and Codex final review.",
   "author": {
-    "name": "Misayos"
+    "name": "Misayos",
+    "url": "https://github.com/Misaoys"
   },
+  "homepage": "https://github.com/Misaoys/agents-coding-collab#readme",
+  "repository": "https://github.com/Misaoys/agents-coding-collab",
   "license": "MIT",
   "keywords": [
     "multi-agent",
