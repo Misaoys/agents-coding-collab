@@ -1,5 +1,7 @@
 # Agents Coding Collab
 
+[简体中文](README.zh-CN.md) | English
+
 Agents Coding Collab is a Codex plugin for tool-aware, multi-model coding collaboration.
 It packages a set of skills that help Codex gather fresh project evidence, route work across
 multiple OpenAI-compatible models, run a write-review-revise loop, and perform a final Codex-owned
