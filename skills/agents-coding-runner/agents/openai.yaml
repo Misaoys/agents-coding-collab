@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Runner"
+  short_description: "Run collab scripts safely"
+  default_prompt: "Use $agents-coding-runner to run scripts/collab.ps1 with the right mode, timeouts, artifact handling, and process hygiene."

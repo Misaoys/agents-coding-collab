@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Research"
+  short_description: "Fresh docs and project evidence"
+  default_prompt: "Use $agents-coding-research to gather current docs, local project rules, relevant skills, and freshness evidence before coding."

@@ -1,0 +1,26 @@
+# Secrets and local environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Generated collaboration artifacts
+1-draft-*.md
+2-review-*.md
+3-final-round*.md
+4-validation-round*.md
+summary-*.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs and caches
+*.log
+__pycache__/
+.pytest_cache/
+node_modules/

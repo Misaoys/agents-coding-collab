@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Model Router"
+  short_description: "Route models, gateways, and keys"
+  default_prompt: "Use $agents-coding-model-router to choose writer, reviewer, reviser, and validator models, base URLs, and API keys."

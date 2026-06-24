@@ -1,0 +1,39 @@
+{
+  "name": "agents-coding-collab",
+  "version": "0.1.0+codex.20260624183552",
+  "description": "Tool-aware multi-skill coding collaboration plugin with multi-model routing, quick/long-edit mode selection, freshness checks, and Codex final review.",
+  "author": {
+    "name": "Misayos"
+  },
+  "license": "MIT",
+  "keywords": [
+    "multi-agent",
+    "multi-model",
+    "coding",
+    "review",
+    "long-edit",
+    "tool-assisted",
+    "model-routing",
+    "freshness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agents Coding Collab",
+    "shortDescription": "Multi-model coding collaboration",
+    "longDescription": "Provides a suite of coding-collaboration skills for research, model routing, long-edit context packets, safe script running, and Codex final review. The runner supports OpenAI-compatible APIs with role-specific writer, reviewer, reviser, and validator models, base URLs, and API keys.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review",
+      "Research",
+      "Model routing",
+      "Large project editing"
+    ],
+    "defaultPrompt": [
+      "Use agents-coding-collab for this coding task.",
+      "Use agents-coding-model-router to configure multiple models and gateways.",
+      "Run a long edit review with fresh docs before delivery."
+    ]
+  }
+}

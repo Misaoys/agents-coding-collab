@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Final Review"
+  short_description: "Codex-owned final delivery audit"
+  default_prompt: "Use $agents-coding-final-review to audit generated artifacts, tests, freshness evidence, and project-rule fit before delivery."

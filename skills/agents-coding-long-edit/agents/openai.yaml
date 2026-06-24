@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Long Edit"
+  short_description: "Large project context packets"
+  default_prompt: "Use $agents-coding-long-edit to prepare a long-edit context packet for a large or risky engineering task."

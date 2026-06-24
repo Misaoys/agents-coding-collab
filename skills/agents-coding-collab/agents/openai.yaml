@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Coding Collab"
+  short_description: "Tool-aware multi-agent coding"
+  default_prompt: "Use $agents-coding-collab to choose quick or long edit mode, gather fresh tool/search/skill evidence, run multi-agent coding, wait for completion, and perform a Codex final review."
