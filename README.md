@@ -23,6 +23,7 @@ delivery review.
 - Supports per-reviewer model arrays, base URL arrays, and API key arrays.
 - Supports quick mode for small isolated tasks.
 - Supports long-edit mode for large projects and cross-file implementation work.
+- Prints a Codex-terminal model trace for each writer, reviewer, reviser, and validator call.
 - Requires Codex to use tools, official docs, internet search, and relevant skills for stale-prone facts.
 - Keeps Codex responsible for final review instead of blindly trusting generated output.
 
@@ -54,6 +55,12 @@ From `skills/agents-coding-collab`:
 
 ```powershell
 .\scripts\collab.ps1 -Task "Write a debounce function" -Language javascript -Quick
+```
+
+Limit terminal preview size:
+
+```powershell
+.\scripts\collab.ps1 -Task "Write an add function" -Language python -Quick -ModelTraceChars 500
 ```
 
 Long-edit example:

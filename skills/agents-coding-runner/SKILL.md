@@ -32,6 +32,11 @@ Read these after completion:
 - latest `3-final-roundN-*.md`
 - latest `4-validation-roundN-*.md`
 
+The runner prints a Codex-terminal model trace by default. It shows each model call's role,
+model name, action, endpoint, token count, artifact file, and a bounded output preview. Use
+`-ModelTraceChars <n>` to change the preview size, `-ModelTraceChars 0` to show only model
+metadata, or `-NoModelTrace` to disable the trace.
+
 ## Process Hygiene
 
 - Give the shell/tool timeout enough time for the full model workflow.

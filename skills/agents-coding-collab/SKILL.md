@@ -233,6 +233,10 @@ Outputs:
 - `4-validation-roundN-*.md`: PASS/FAIL validation.
 - `summary-*.json`: run report.
 
+By default, the script also prints a `MODEL START` / `MODEL END` trace to the Codex terminal
+for every writer, reviewer, reviser, and validator call. The trace shows role, model, action,
+base URL, token counts, artifact file, and a bounded output preview. API keys are never printed.
+
 ## Parameters
 
 | Parameter | Default | Description |
@@ -260,6 +264,8 @@ Outputs:
 | `-OutDir` | current dir | Output directory for artifact files |
 | `-MaxRounds` | `3` | Max revise-validate iterations on FAIL, 1-5 |
 | `-RequestTimeoutSec` | `3600` | Per API-call wait time; pass `0` to disable local request timeout |
+| `-ModelTraceChars` | `1200` | Max terminal preview chars per model output; `0` disables content previews |
+| `-NoModelTrace` | switch | Disable terminal model dispatch trace |
 | `-Quick` | switch | Quick mode: 1 reviewer and 1 revise-validate round |
 
 ## Environment Variables
@@ -275,6 +281,9 @@ Outputs:
 ```powershell
 # Quick isolated task
 .\scripts\collab.ps1 -Task "Write a debounce function" -Language javascript -Quick
+
+# Quick task with shorter Codex terminal previews
+.\scripts\collab.ps1 -Task "Write an add function" -Language python -Quick -ModelTraceChars 500
 
 # Long edit / large engineering task
 .\scripts\collab.ps1 -Task "<context packet>" -Language typescript -ReviewerCount 4 -MaxRounds 5 -RequestTimeoutSec 0
@@ -307,6 +316,8 @@ Outputs:
   `HttpClient` instead of fragile `Start-Process curl.exe` argument passing.
 - Validator key missing with mixed reviewers: pass `-ValidatorApiKey`, or ensure
   `-ReviewerApiKeys` has at least one value so the validator can inherit the last reviewer key.
+- Terminal output too noisy: lower `-ModelTraceChars`, pass `-ModelTraceChars 0` to keep only
+  role/model/token trace, or pass `-NoModelTrace` to disable model trace output.
 
 ## Script
 

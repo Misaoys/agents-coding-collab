@@ -55,6 +55,10 @@
     修订-验证最大迭代轮数，1-5。默认 3。FAIL 时自动再修订直到 PASS 或达上限。
 .PARAMETER RequestTimeoutSec
     单次模型/API 调用等待秒数。默认 3600，避免长任务写到一半被本地脚本中断；传 0 表示不设置本地超时。
+.PARAMETER ModelTraceChars
+    在 Codex 终端显示每个模型输出预览的最大字符数。默认 1200；传 0 只显示模型调度和 token，不显示内容预览。
+.PARAMETER NoModelTrace
+    关闭 Codex 终端里的模型调度追踪输出。默认开启。
 .PARAMETER Quick
     快速模式：1 个审查员 + 单轮，适合简单任务。
 .PARAMETER OutDir
@@ -100,6 +104,8 @@ param(
     [int]$ReviewerCount    = 4,
     [int]$MaxRounds        = 3,
     [int]$RequestTimeoutSec = 3600,
+    [int]$ModelTraceChars  = 1200,
+    [switch]$NoModelTrace,
     [switch]$Quick,
     [string]$OutDir        = (Get-Location).Path
 )
@@ -155,6 +161,9 @@ if ($MaxRounds -lt 1 -or $MaxRounds -gt 5) {
 if ($RequestTimeoutSec -lt 0) {
     throw "RequestTimeoutSec 必须大于等于 0。"
 }
+if ($ModelTraceChars -lt 0) {
+    throw "ModelTraceChars 必须大于等于 0。"
+}
 if ($ReviewerCount -lt 1 -or $ReviewerCount -gt 4) { throw "ReviewerCount 必须在 1-4 之间。" }
 
 # ============ 工具函数 ============
@@ -174,6 +183,56 @@ function Get-IndexedOrDefault([array]$Values, [int]$Index, [string]$Default) {
         return [string]$Values[$Values.Count - 1]
     }
     return $Default
+}
+function Get-ObjectValue($Object, [string]$Name, $Default) {
+    if ($null -eq $Object) { return $Default }
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($prop) { return $prop.Value }
+    return $Default
+}
+function Format-TracePreview([string]$Text, [int]$Limit) {
+    if (-not $Text) { return "" }
+    $normalized = $Text.Trim()
+    if ($Limit -eq 0) { return "" }
+    if ($normalized.Length -le $Limit) { return $normalized }
+    return $normalized.Substring(0, $Limit) + "`n... [truncated in terminal; full output is in artifact file]"
+}
+function Write-ModelTraceStart([string]$Role, [string]$Model, [string]$Action, [string]$BaseUrl, [string]$Name = "") {
+    if ($NoModelTrace) { return }
+    $label = if ($Name) { "$Role/$Name" } else { $Role }
+    Write-Host ""
+    Write-Host "[MODEL START] $label" -ForegroundColor Magenta
+    Write-Host "  model : $Model" -ForegroundColor Magenta
+    Write-Host "  action: $Action" -ForegroundColor Magenta
+    Write-Host "  api   : $BaseUrl" -ForegroundColor DarkGray
+}
+function Write-ModelTraceEnd([string]$Role, [string]$Model, $Result, [string]$Preview, [string]$Artifact = "", [string]$Name = "") {
+    if ($NoModelTrace) { return }
+    $label = if ($Name) { "$Role/$Name" } else { $Role }
+    $finish = Get-ObjectValue $Result "Finish" "unknown"
+    $tokens = Get-ObjectValue $Result "Tokens" 0
+    $reasonTok = Get-ObjectValue $Result "ReasonTok" 0
+    $ok = Get-ObjectValue $Result "OK" $true
+    $status = if ($ok) { "OK" } else { "ERROR" }
+    Write-Host "[MODEL END]   $label" -ForegroundColor Magenta
+    Write-Host "  model : $Model" -ForegroundColor Magenta
+    Write-Host "  status: $status | finish=$finish | tokens=$tokens | reasoning=$reasonTok" -ForegroundColor DarkGray
+    if ($Artifact) { Write-Host "  file  : $Artifact" -ForegroundColor DarkGray }
+    $previewText = Format-TracePreview $Preview $ModelTraceChars
+    if ($previewText) {
+        Write-Host "----- $label output preview -----" -ForegroundColor DarkCyan
+        Write-Host $previewText -ForegroundColor Gray
+        Write-Host "----- end preview -----" -ForegroundColor DarkCyan
+    }
+}
+function New-ModelTraceErrorResult([string]$Message) {
+    [pscustomobject]@{
+        OK        = $false
+        Finish    = "error"
+        Tokens    = 0
+        ReasonTok = 0
+        Error     = $Message
+    }
 }
 
 # 串行调用（用于 writer / reviser / validator）
@@ -401,16 +460,28 @@ Write-Host "[任务] $Task" -ForegroundColor Yellow
 Write-Host "[语言] $Language | [审查维度] $($reviewerNames -join ', ')" -ForegroundColor Yellow
 $timeoutLabel = if ($RequestTimeoutSec -eq 0) { "不限时" } else { "$RequestTimeoutSec 秒" }
 Write-Host "[等待] 单次模型调用最多 $timeoutLabel" -ForegroundColor Yellow
+if (-not $NoModelTrace) {
+    $previewLabel = if ($ModelTraceChars -eq 0) { "关闭内容预览，只显示调度" } else { "每个模型最多显示 $ModelTraceChars 字符预览" }
+    Write-Host "[终端追踪] Model Trace 已开启，$previewLabel" -ForegroundColor Yellow
+}
 Write-Host ""
 
 # Step 1: Writer 写初版
 Write-Host "[1/5] $WriterModel 正在写初版代码..." -ForegroundColor Green
-$step1 = Invoke-Chat -Model $WriterModel -SystemPrompt $writerSystem -UserPrompt "需求：$Task" -MaxTokens 8000 -Temp 0.3 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $WriterBaseUrl -RequestApiKey $WriterApiKey
+Write-ModelTraceStart -Role "writer" -Model $WriterModel -Action "draft initial code" -BaseUrl $WriterBaseUrl
+try {
+    $step1 = Invoke-Chat -Model $WriterModel -SystemPrompt $writerSystem -UserPrompt "需求：$Task" -MaxTokens 8000 -Temp 0.3 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $WriterBaseUrl -RequestApiKey $WriterApiKey
+} catch {
+    $traceErr = New-ModelTraceErrorResult $_.Exception.Message
+    Write-ModelTraceEnd -Role "writer" -Model $WriterModel -Result $traceErr -Preview $_.Exception.Message -Artifact "1-draft-$stamp.md"
+    throw
+}
 $draft = $step1.Content
 Write-Host "      完成（$($step1.Tokens) token，思考 $($step1.ReasonTok) token，$($step1.Finish)）" -ForegroundColor DarkGray
 
 Write-Utf8 (Join-Path $OutDir "1-draft-$stamp.md") "# 初版代码（$WriterModel）`n`n$draft"
 Write-Host "      -> 1-draft-$stamp.md" -ForegroundColor DarkGray
+Write-ModelTraceEnd -Role "writer" -Model $WriterModel -Result $step1 -Preview $draft -Artifact "1-draft-$stamp.md"
 
 # Step 2: 并行审查
 Write-Host ""
@@ -430,6 +501,9 @@ $jobs = for ($i = 0; $i -lt $reviewerNames.Count; $i++) {
 }
 $jobByName = @{}
 foreach ($job in $jobs) { $jobByName[$job.Name] = $job }
+foreach ($job in $jobs) {
+    Write-ModelTraceStart -Role "reviewer" -Name $job.Name -Model $job.Model -Action "parallel review: $($job.Name)" -BaseUrl $job.BaseUrl
+}
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $reviewResults = Invoke-ChatParallel -Jobs $jobs -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $ReviewerBaseUrl -RequestApiKey $ReviewerApiKey
 $sw.Stop()
@@ -443,6 +517,8 @@ foreach ($name in $reviewerNames) {
     $jobModel = if ($jobByName[$name]) { $jobByName[$name].Model } else { $ReviewerModel }
     $status = if ($r.OK) { "$jobModel | $($r.Tokens) token" } else { "$jobModel | 失败: $($r.Error)" }
     Write-Host "  [$name] $status" -ForegroundColor $(if ($r.OK) { 'DarkGray' } else { 'Red' })
+    $reviewPreview = if ($r.OK) { $r.Content } else { $r.Error }
+    Write-ModelTraceEnd -Role "reviewer" -Name $name -Model $jobModel -Result $r -Preview $reviewPreview -Artifact "2-review-$stamp.md"
 }
 Write-Host "      并行耗时 $([Math]::Round($sw.Elapsed.TotalSeconds, 1)) 秒" -ForegroundColor DarkGray
 
@@ -485,18 +561,34 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
         Write-Host "[$roundLabel] $ReviserModel 正在根据残留问题再修订..." -ForegroundColor Green
         $revisePrompt = "原始需求：`n$Task`n`n当前代码：`n$currentCode`n`n上一轮验证结论（未通过）：`n$($allVerdicts[-1])`n`n请针对残留问题修订代码，解决所有高/中严重度问题。"
     }
-    $step4 = Invoke-Chat -Model $ReviserModel -SystemPrompt $reviserSystem -UserPrompt $revisePrompt -MaxTokens 8000 -Temp 0.3 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $ReviserBaseUrl -RequestApiKey $ReviserApiKey
+    Write-ModelTraceStart -Role "reviser" -Model $ReviserModel -Action "revise from merged review ($roundLabel)" -BaseUrl $ReviserBaseUrl
+    try {
+        $step4 = Invoke-Chat -Model $ReviserModel -SystemPrompt $reviserSystem -UserPrompt $revisePrompt -MaxTokens 8000 -Temp 0.3 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $ReviserBaseUrl -RequestApiKey $ReviserApiKey
+    } catch {
+        $traceErr = New-ModelTraceErrorResult $_.Exception.Message
+        Write-ModelTraceEnd -Role "reviser" -Model $ReviserModel -Result $traceErr -Preview $_.Exception.Message -Artifact "3-final-round${round}-$stamp.md"
+        throw
+    }
     $currentCode = $step4.Content
     $totalApiCalls++
     Write-Host "      修订完成（$($step4.Tokens) token，思考 $($step4.ReasonTok) token，$($step4.Finish)）" -ForegroundColor DarkGray
+    Write-ModelTraceEnd -Role "reviser" -Model $ReviserModel -Result $step4 -Preview $currentCode -Artifact "3-final-round${round}-$stamp.md"
 
     # -- 验证 --
     Write-Host "[$roundLabel] $ValidatorModel 正在验证..." -ForegroundColor Green
     $validatePrompt = "修订后的代码：`n$currentCode`n`n原始合并审查意见：`n$consolidated`n`n请验证是否所有高/中严重度问题已解决。"
-    $step5 = Invoke-Chat -Model $ValidatorModel -SystemPrompt $validatorSystem -UserPrompt $validatePrompt -MaxTokens 4000 -Temp 1 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $ValidatorBaseUrl -RequestApiKey $ValidatorApiKey
+    Write-ModelTraceStart -Role "validator" -Model $ValidatorModel -Action "validate revised code ($roundLabel)" -BaseUrl $ValidatorBaseUrl
+    try {
+        $step5 = Invoke-Chat -Model $ValidatorModel -SystemPrompt $validatorSystem -UserPrompt $validatePrompt -MaxTokens 4000 -Temp 1 -TimeoutSec $RequestTimeoutSec -RequestBaseUrl $ValidatorBaseUrl -RequestApiKey $ValidatorApiKey
+    } catch {
+        $traceErr = New-ModelTraceErrorResult $_.Exception.Message
+        Write-ModelTraceEnd -Role "validator" -Model $ValidatorModel -Result $traceErr -Preview $_.Exception.Message -Artifact "4-validation-round${round}-$stamp.md"
+        throw
+    }
     $verdict = $step5.Content
     $totalApiCalls++
     Write-Host "      验证完成（$($step5.Tokens) token，$($step5.Finish)）" -ForegroundColor DarkGray
+    Write-ModelTraceEnd -Role "validator" -Model $ValidatorModel -Result $step5 -Preview $verdict -Artifact "4-validation-round${round}-$stamp.md"
 
     $allVerdicts += $verdict
     $allFinals += $currentCode

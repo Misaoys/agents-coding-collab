@@ -1,6 +1,6 @@
 {
   "name": "agents-coding-collab",
-  "version": "0.1.0+codex.20260624183552",
+  "version": "0.1.0+codex.20260625163127",
   "description": "Tool-aware multi-skill coding collaboration plugin with multi-model routing, quick/long-edit mode selection, freshness checks, and Codex final review.",
   "author": {
     "name": "Misayos",
