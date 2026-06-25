@@ -72,6 +72,12 @@ skills/
 .\scripts\collab.ps1 -Task "写一个 add 函数" -Language python -Quick -ModelTraceChars 500
 ```
 
+只测试终端追踪显示，不调用任何模型 API：
+
+```powershell
+.\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+```
+
 大型工程 / long edit 示例：
 
 ```powershell

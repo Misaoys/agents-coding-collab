@@ -236,6 +236,7 @@ Outputs:
 By default, the script also prints a `MODEL START` / `MODEL END` trace to the Codex terminal
 for every writer, reviewer, reviser, and validator call. The trace shows role, model, action,
 base URL, token counts, artifact file, and a bounded output preview. API keys are never printed.
+Use `-ModelTraceDemo` to print a simulated trace without calling any model API.
 
 ## Parameters
 
@@ -266,6 +267,7 @@ base URL, token counts, artifact file, and a bounded output preview. API keys ar
 | `-RequestTimeoutSec` | `3600` | Per API-call wait time; pass `0` to disable local request timeout |
 | `-ModelTraceChars` | `1200` | Max terminal preview chars per model output; `0` disables content previews |
 | `-NoModelTrace` | switch | Disable terminal model dispatch trace |
+| `-ModelTraceDemo` | switch | Print a simulated terminal trace and exit without API calls |
 | `-Quick` | switch | Quick mode: 1 reviewer and 1 revise-validate round |
 
 ## Environment Variables
@@ -284,6 +286,9 @@ base URL, token counts, artifact file, and a bounded output preview. API keys ar
 
 # Quick task with shorter Codex terminal previews
 .\scripts\collab.ps1 -Task "Write an add function" -Language python -Quick -ModelTraceChars 500
+
+# Terminal-only trace demo, no model API call
+.\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
 
 # Long edit / large engineering task
 .\scripts\collab.ps1 -Task "<context packet>" -Language typescript -ReviewerCount 4 -MaxRounds 5 -RequestTimeoutSec 0

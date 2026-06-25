@@ -59,6 +59,8 @@
     在 Codex 终端显示每个模型输出预览的最大字符数。默认 1200；传 0 只显示模型调度和 token，不显示内容预览。
 .PARAMETER NoModelTrace
     关闭 Codex 终端里的模型调度追踪输出。默认开启。
+.PARAMETER ModelTraceDemo
+    只打印一组模拟 MODEL START / MODEL END 终端追踪并退出，不调用任何模型 API。用于确认 Codex 桌面端终端是否能看到追踪。
 .PARAMETER Quick
     快速模式：1 个审查员 + 单轮，适合简单任务。
 .PARAMETER OutDir
@@ -106,6 +108,7 @@ param(
     [int]$RequestTimeoutSec = 3600,
     [int]$ModelTraceChars  = 1200,
     [switch]$NoModelTrace,
+    [switch]$ModelTraceDemo,
     [switch]$Quick,
     [string]$OutDir        = (Get-Location).Path
 )
@@ -152,7 +155,7 @@ if (-not $WriterApiKey) { $missingKeys += "writer" }
 if (-not $ReviewerApiKey -and (-not $ReviewerApiKeys -or $ReviewerApiKeys.Count -eq 0)) { $missingKeys += "reviewer" }
 if (-not $ReviserApiKey) { $missingKeys += "reviser" }
 if (-not $ValidatorApiKey) { $missingKeys += "validator" }
-if ($missingKeys.Count -gt 0) {
+if ($missingKeys.Count -gt 0 -and -not $ModelTraceDemo) {
     throw "缺少 API Key：$($missingKeys -join ', ')。请用角色专用参数/环境变量传入，或设置 -ApiKey、XD_API_KEY，或写入 $PrivateKeyPath。"
 }
 if ($MaxRounds -lt 1 -or $MaxRounds -gt 5) {
@@ -233,6 +236,35 @@ function New-ModelTraceErrorResult([string]$Message) {
         ReasonTok = 0
         Error     = $Message
     }
+}
+
+if ($ModelTraceDemo) {
+    Write-Host ""
+    Write-Host "==========================================" -ForegroundColor Cyan
+    Write-Host " Model Trace Demo（不调用模型 API）" -ForegroundColor Cyan
+    Write-Host "==========================================" -ForegroundColor Cyan
+    if ($NoModelTrace) {
+        Write-Host "已传入 -NoModelTrace，因此不会显示 MODEL START / MODEL END。" -ForegroundColor Yellow
+        return
+    }
+    if ($ModelTraceChars -eq 0) {
+        Write-Host "[终端追踪] Model Trace 已开启，只显示调度元数据，不显示内容预览" -ForegroundColor Yellow
+    } else {
+        Write-Host "[终端追踪] Model Trace 已开启，每个模型最多显示 $ModelTraceChars 字符预览" -ForegroundColor Yellow
+    }
+
+    $demoOk = [pscustomobject]@{ OK = $true; Finish = "demo"; Tokens = 123; ReasonTok = 45 }
+    Write-ModelTraceStart -Role "writer" -Model $WriterModel -Action "demo: draft initial code" -BaseUrl $WriterBaseUrl
+    Write-ModelTraceEnd -Role "writer" -Model $WriterModel -Result $demoOk -Preview "demo writer output: generated a tiny add(a, b) function." -Artifact "1-draft-demo.md"
+    Write-ModelTraceStart -Role "reviewer" -Name "bug" -Model $ReviewerModel -Action "demo: parallel review: bug" -BaseUrl $ReviewerBaseUrl
+    Write-ModelTraceEnd -Role "reviewer" -Name "bug" -Model $ReviewerModel -Result $demoOk -Preview "demo reviewer output: no blocking issues found." -Artifact "2-review-demo.md"
+    Write-ModelTraceStart -Role "reviser" -Model $ReviserModel -Action "demo: revise from merged review" -BaseUrl $ReviserBaseUrl
+    Write-ModelTraceEnd -Role "reviser" -Model $ReviserModel -Result $demoOk -Preview "demo reviser output: final code is ready." -Artifact "3-final-round1-demo.md"
+    Write-ModelTraceStart -Role "validator" -Model $ValidatorModel -Action "demo: validate revised code" -BaseUrl $ValidatorBaseUrl
+    Write-ModelTraceEnd -Role "validator" -Model $ValidatorModel -Result $demoOk -Preview "demo validator output: PASS." -Artifact "4-validation-round1-demo.md"
+    Write-Host ""
+    Write-Host "Model Trace Demo 完成。若你能看到上面的 MODEL START / MODEL END，说明终端显示链路正常。" -ForegroundColor Green
+    return
 }
 
 # 串行调用（用于 writer / reviser / validator）

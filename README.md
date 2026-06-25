@@ -63,6 +63,12 @@ Limit terminal preview size:
 .\scripts\collab.ps1 -Task "Write an add function" -Language python -Quick -ModelTraceChars 500
 ```
 
+Terminal-only trace demo without calling any model API:
+
+```powershell
+.\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+```
+
 Long-edit example:
 
 ```powershell

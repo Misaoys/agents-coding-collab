@@ -35,7 +35,14 @@ Read these after completion:
 The runner prints a Codex-terminal model trace by default. It shows each model call's role,
 model name, action, endpoint, token count, artifact file, and a bounded output preview. Use
 `-ModelTraceChars <n>` to change the preview size, `-ModelTraceChars 0` to show only model
-metadata, or `-NoModelTrace` to disable the trace.
+metadata, or `-NoModelTrace` to disable the trace. Use `-ModelTraceDemo` to print a simulated
+trace and exit without calling any model API.
+
+Terminal display smoke test:
+
+```powershell
+.\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+```
 
 ## Process Hygiene
 
