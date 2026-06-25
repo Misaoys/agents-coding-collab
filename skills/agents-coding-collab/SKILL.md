@@ -236,7 +236,16 @@ Outputs:
 By default, the script also prints a `MODEL START` / `MODEL END` trace to the Codex terminal
 for every writer, reviewer, reviser, and validator call. The trace shows role, model, action,
 base URL, token counts, artifact file, and a bounded output preview. API keys are never printed.
-Use `-ModelTraceDemo` to print a simulated trace without calling any model API.
+The same trace is also mirrored to `%TEMP%\agents-coding-collab-model-trace.log` by default.
+Keep `scripts/watch-model-trace.ps1` running in a terminal once, and future model runs will
+scroll there automatically. Use `-ModelTraceDemo` to print a simulated trace without calling
+any model API.
+
+One-time terminal watcher:
+
+```powershell
+.\scripts\watch-model-trace.ps1
+```
 
 ## Parameters
 
@@ -267,6 +276,8 @@ Use `-ModelTraceDemo` to print a simulated trace without calling any model API.
 | `-RequestTimeoutSec` | `3600` | Per API-call wait time; pass `0` to disable local request timeout |
 | `-ModelTraceChars` | `1200` | Max terminal preview chars per model output; `0` disables content previews |
 | `-NoModelTrace` | switch | Disable terminal model dispatch trace |
+| `-ModelTraceLogPath` | `%TEMP%\agents-coding-collab-model-trace.log` | Local trace mirror log path; env override: `AGENTS_CODING_TRACE_LOG` |
+| `-NoModelTraceLog` | switch | Disable local trace log mirroring |
 | `-ModelTraceDemo` | switch | Print a simulated terminal trace and exit without API calls |
 | `-Quick` | switch | Quick mode: 1 reviewer and 1 revise-validate round |
 
@@ -289,6 +300,9 @@ Use `-ModelTraceDemo` to print a simulated trace without calling any model API.
 
 # Terminal-only trace demo, no model API call
 .\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+
+# Keep a terminal watching future model traces
+.\scripts\watch-model-trace.ps1
 
 # Long edit / large engineering task
 .\scripts\collab.ps1 -Task "<context packet>" -Language typescript -ReviewerCount 4 -MaxRounds 5 -RequestTimeoutSec 0
@@ -323,6 +337,9 @@ Use `-ModelTraceDemo` to print a simulated trace without calling any model API.
   `-ReviewerApiKeys` has at least one value so the validator can inherit the last reviewer key.
 - Terminal output too noisy: lower `-ModelTraceChars`, pass `-ModelTraceChars 0` to keep only
   role/model/token trace, or pass `-NoModelTrace` to disable model trace output.
+- Need the right-side PowerShell terminal to keep showing future traces: run
+  `.\scripts\watch-model-trace.ps1` once and leave it open. The collab script appends traces to
+  the shared log automatically.
 
 ## Script
 

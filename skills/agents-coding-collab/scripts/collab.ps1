@@ -59,6 +59,10 @@
     在 Codex 终端显示每个模型输出预览的最大字符数。默认 1200；传 0 只显示模型调度和 token，不显示内容预览。
 .PARAMETER NoModelTrace
     关闭 Codex 终端里的模型调度追踪输出。默认开启。
+.PARAMETER ModelTraceLogPath
+    模型调度追踪镜像日志路径。默认 %TEMP%\agents-coding-collab-model-trace.log，也可用 AGENTS_CODING_TRACE_LOG 覆盖。
+.PARAMETER NoModelTraceLog
+    关闭模型调度追踪日志镜像。默认会自动写入本地日志，方便另一个终端用 watch-model-trace.ps1 持续查看。
 .PARAMETER ModelTraceDemo
     只打印一组模拟 MODEL START / MODEL END 终端追踪并退出，不调用任何模型 API。用于确认 Codex 桌面端终端是否能看到追踪。
 .PARAMETER Quick
@@ -108,12 +112,17 @@ param(
     [int]$RequestTimeoutSec = 3600,
     [int]$ModelTraceChars  = 1200,
     [switch]$NoModelTrace,
+    [string]$ModelTraceLogPath = [System.Environment]::GetEnvironmentVariable("AGENTS_CODING_TRACE_LOG"),
+    [switch]$NoModelTraceLog,
     [switch]$ModelTraceDemo,
     [switch]$Quick,
     [string]$OutDir        = (Get-Location).Path
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $ModelTraceLogPath) {
+    $ModelTraceLogPath = Join-Path $env:TEMP "agents-coding-collab-model-trace.log"
+}
 
 $PrivateKeyPath = Join-Path $env:USERPROFILE ".codex\secrets\dual-model-collab.key"
 if (-not $ApiKey -and (Test-Path $PrivateKeyPath)) {
@@ -200,14 +209,40 @@ function Format-TracePreview([string]$Text, [int]$Limit) {
     if ($normalized.Length -le $Limit) { return $normalized }
     return $normalized.Substring(0, $Limit) + "`n... [truncated in terminal; full output is in artifact file]"
 }
+function Ensure-ModelTraceLog {
+    if ($NoModelTraceLog -or -not $ModelTraceLogPath) { return }
+    if ($script:modelTraceLogReady) { return }
+
+    $dir = Split-Path -Parent $ModelTraceLogPath
+    if ($dir -and -not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+    if ((Test-Path $ModelTraceLogPath) -and ((Get-Item $ModelTraceLogPath).Length -gt 4194304)) {
+        $archivePath = "$ModelTraceLogPath.1"
+        Remove-Item -LiteralPath $archivePath -ErrorAction SilentlyContinue
+        Move-Item -LiteralPath $ModelTraceLogPath -Destination $archivePath -Force
+    }
+    $script:modelTraceLogReady = $true
+    Add-Content -LiteralPath $ModelTraceLogPath -Encoding UTF8 -Value ""
+    Add-Content -LiteralPath $ModelTraceLogPath -Encoding UTF8 -Value ("===== Agents Coding Collab Trace {0} =====" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
+}
+function Write-ModelTraceLine([string]$Text, [string]$Color = "Gray") {
+    Write-Host $Text -ForegroundColor $Color
+    if ($NoModelTraceLog -or -not $ModelTraceLogPath) { return }
+    Ensure-ModelTraceLog
+    $stampText = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    foreach ($line in ($Text -split "`r?`n")) {
+        Add-Content -LiteralPath $ModelTraceLogPath -Encoding UTF8 -Value ("[$stampText] $line")
+    }
+}
 function Write-ModelTraceStart([string]$Role, [string]$Model, [string]$Action, [string]$BaseUrl, [string]$Name = "") {
     if ($NoModelTrace) { return }
     $label = if ($Name) { "$Role/$Name" } else { $Role }
-    Write-Host ""
-    Write-Host "[MODEL START] $label" -ForegroundColor Magenta
-    Write-Host "  model : $Model" -ForegroundColor Magenta
-    Write-Host "  action: $Action" -ForegroundColor Magenta
-    Write-Host "  api   : $BaseUrl" -ForegroundColor DarkGray
+    Write-ModelTraceLine "" "Magenta"
+    Write-ModelTraceLine "[MODEL START] $label" "Magenta"
+    Write-ModelTraceLine "  model : $Model" "Magenta"
+    Write-ModelTraceLine "  action: $Action" "Magenta"
+    Write-ModelTraceLine "  api   : $BaseUrl" "DarkGray"
 }
 function Write-ModelTraceEnd([string]$Role, [string]$Model, $Result, [string]$Preview, [string]$Artifact = "", [string]$Name = "") {
     if ($NoModelTrace) { return }
@@ -217,15 +252,15 @@ function Write-ModelTraceEnd([string]$Role, [string]$Model, $Result, [string]$Pr
     $reasonTok = Get-ObjectValue $Result "ReasonTok" 0
     $ok = Get-ObjectValue $Result "OK" $true
     $status = if ($ok) { "OK" } else { "ERROR" }
-    Write-Host "[MODEL END]   $label" -ForegroundColor Magenta
-    Write-Host "  model : $Model" -ForegroundColor Magenta
-    Write-Host "  status: $status | finish=$finish | tokens=$tokens | reasoning=$reasonTok" -ForegroundColor DarkGray
-    if ($Artifact) { Write-Host "  file  : $Artifact" -ForegroundColor DarkGray }
+    Write-ModelTraceLine "[MODEL END]   $label" "Magenta"
+    Write-ModelTraceLine "  model : $Model" "Magenta"
+    Write-ModelTraceLine "  status: $status | finish=$finish | tokens=$tokens | reasoning=$reasonTok" "DarkGray"
+    if ($Artifact) { Write-ModelTraceLine "  file  : $Artifact" "DarkGray" }
     $previewText = Format-TracePreview $Preview $ModelTraceChars
     if ($previewText) {
-        Write-Host "----- $label output preview -----" -ForegroundColor DarkCyan
-        Write-Host $previewText -ForegroundColor Gray
-        Write-Host "----- end preview -----" -ForegroundColor DarkCyan
+        Write-ModelTraceLine "----- $label output preview -----" "DarkCyan"
+        Write-ModelTraceLine $previewText "Gray"
+        Write-ModelTraceLine "----- end preview -----" "DarkCyan"
     }
 }
 function New-ModelTraceErrorResult([string]$Message) {
@@ -251,6 +286,9 @@ if ($ModelTraceDemo) {
         Write-Host "[终端追踪] Model Trace 已开启，只显示调度元数据，不显示内容预览" -ForegroundColor Yellow
     } else {
         Write-Host "[终端追踪] Model Trace 已开启，每个模型最多显示 $ModelTraceChars 字符预览" -ForegroundColor Yellow
+    }
+    if (-not $NoModelTraceLog) {
+        Write-Host "[日志镜像] $ModelTraceLogPath" -ForegroundColor Yellow
     }
 
     $demoOk = [pscustomobject]@{ OK = $true; Finish = "demo"; Tokens = 123; ReasonTok = 45 }
@@ -495,6 +533,9 @@ Write-Host "[等待] 单次模型调用最多 $timeoutLabel" -ForegroundColor Ye
 if (-not $NoModelTrace) {
     $previewLabel = if ($ModelTraceChars -eq 0) { "关闭内容预览，只显示调度" } else { "每个模型最多显示 $ModelTraceChars 字符预览" }
     Write-Host "[终端追踪] Model Trace 已开启，$previewLabel" -ForegroundColor Yellow
+    if (-not $NoModelTraceLog) {
+        Write-Host "[日志镜像] $ModelTraceLogPath" -ForegroundColor Yellow
+    }
 }
 Write-Host ""
 

@@ -33,15 +33,25 @@ Read these after completion:
 - latest `4-validation-roundN-*.md`
 
 The runner prints a Codex-terminal model trace by default. It shows each model call's role,
-model name, action, endpoint, token count, artifact file, and a bounded output preview. Use
-`-ModelTraceChars <n>` to change the preview size, `-ModelTraceChars 0` to show only model
-metadata, or `-NoModelTrace` to disable the trace. Use `-ModelTraceDemo` to print a simulated
-trace and exit without calling any model API.
+model name, action, endpoint, token count, artifact file, and a bounded output preview. The
+same trace is mirrored to `%TEMP%\agents-coding-collab-model-trace.log` by default, so a
+right-side PowerShell terminal can watch future runs automatically.
+
+Use `-ModelTraceChars <n>` to change the preview size, `-ModelTraceChars 0` to show only model
+metadata, `-NoModelTrace` to disable the trace, `-ModelTraceLogPath <path>` to choose another
+log file, or `-NoModelTraceLog` to disable log mirroring. Use `-ModelTraceDemo` to print a
+simulated trace and exit without calling any model API.
 
 Terminal display smoke test:
 
 ```powershell
 .\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+```
+
+Persistent watcher for future model runs:
+
+```powershell
+.\scripts\watch-model-trace.ps1
 ```
 
 ## Process Hygiene

@@ -24,6 +24,7 @@ delivery review.
 - Supports quick mode for small isolated tasks.
 - Supports long-edit mode for large projects and cross-file implementation work.
 - Prints a Codex-terminal model trace for each writer, reviewer, reviser, and validator call.
+- Mirrors model traces to a local log that a PowerShell terminal can watch continuously.
 - Requires Codex to use tools, official docs, internet search, and relevant skills for stale-prone facts.
 - Keeps Codex responsible for final review instead of blindly trusting generated output.
 
@@ -67,6 +68,12 @@ Terminal-only trace demo without calling any model API:
 
 ```powershell
 .\scripts\collab.ps1 -Task "trace demo" -ModelTraceDemo -ModelTraceChars 300
+```
+
+Keep a terminal watching all future model traces:
+
+```powershell
+.\scripts\watch-model-trace.ps1
 ```
 
 Long-edit example:
